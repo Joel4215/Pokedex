@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 
 
@@ -14,13 +14,24 @@ interface Pokemon {
       name: string;
     };
   }[];
+  species: {
+    url: string;
+  };
 }
 
+const formatGeneration = (gen: string) =>
+  gen
+    .split('-')
+    .map((part, index) =>
+      index === 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part.toUpperCase()
+    )
+    .join(' ');
 
 function App () {
 
 
 const [data, setData] = useState<Pokemon | null>(null);
+const [generation, setGeneration] = useState<string | null>(null);
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState<string | null>(null);
 const [query, setQuery] = useState('1');
@@ -31,6 +42,7 @@ useEffect(() => {
   const fetchPokemon = async () => {
     setLoading(true);
     setError(null);
+    setGeneration(null);
 
 
     try {
@@ -40,11 +52,21 @@ useEffect(() => {
       }
       const data = await response.json();
       setData(data);
+
+      const speciesResponse = await fetch(data.species.url);
+      if (speciesResponse.ok) {
+        const speciesData = await speciesResponse.json();
+        setGeneration(speciesData.generation?.name ?? null);
+      } else {
+        setGeneration(null);
+      }
+
       setError(null);
       setLoading(false);
     } catch (err) {
       setError((err as Error).message);
       setData(null);
+      setGeneration(null);
       setLoading(false);
     }
   };
@@ -80,6 +102,7 @@ return (
         <img src={data.sprites.front_default} alt={data.name ?? 'pokemon'} />
         <p>Height: {data.height}</p>
         <p>Weight: {data.weight}</p>
+        <p>Generation: {generation ? formatGeneration(generation) : 'Unknown'}</p>
       </div>
     )}
   </div>
