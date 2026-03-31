@@ -1,16 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 
 interface Pokemon {
   name: string;
+  id: number;
   sprites: {
     front_default: string;
+    back_default: string;
   };
   height: number;
   weight: number;
+  types: {
+    slot: number;
+    type: {
+      name: string;
+      url: string;
+    };
+  }[];
   abilities: {
     ability: {
+      name: string;
+    };
+  }[];
+  stats: {
+    base_stat: number;
+    effort: number;
+    stat: {
       name: string;
     };
   }[];
@@ -27,11 +43,52 @@ const formatGeneration = (gen: string) =>
     )
     .join(' ');
 
-function App () {
+const getCryUrl = (id: number) => {
+  return `https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${encodeURIComponent(id)}.ogg`;
+};
 
+const parseEvolutionChain = (chain: any): string[] => {
+  const names: string[] = [];
+
+  const walk = (node: any) => {
+    if (!node || !node.species) {
+      return;
+    }
+
+    names.push(node.species.name);
+
+    if (node.evolves_to && node.evolves_to.length > 0) {
+      walk(node.evolves_to[0]);
+    }
+  };
+
+  walk(chain);
+  return names;
+};
+
+function App () {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handlePlayCry = () => {
+    if (!data) {
+      return;
+    }
+
+    const cryUrl = getCryUrl(data.id);
+    if (!audioRef.current) {
+      audioRef.current = new Audio(cryUrl);
+    } else {
+      audioRef.current.src = cryUrl;
+    }
+
+    audioRef.current.play().catch(() => {
+      console.error('Unable to play cry:', cryUrl);
+    });
+  };
 
 const [data, setData] = useState<Pokemon | null>(null);
 const [generation, setGeneration] = useState<string | null>(null);
+const [evolutionLine, setEvolutionLine] = useState<string[]>([]);
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState<string | null>(null);
 const [query, setQuery] = useState('1');
@@ -43,6 +100,7 @@ useEffect(() => {
     setLoading(true);
     setError(null);
     setGeneration(null);
+    setEvolutionLine([]);
 
 
     try {
@@ -57,8 +115,21 @@ useEffect(() => {
       if (speciesResponse.ok) {
         const speciesData = await speciesResponse.json();
         setGeneration(speciesData.generation?.name ?? null);
+
+        if (speciesData.evolution_chain?.url) {
+          const evoResponse = await fetch(speciesData.evolution_chain.url);
+          if (evoResponse.ok) {
+            const evoData = await evoResponse.json();
+            setEvolutionLine(parseEvolutionChain(evoData.chain));
+          } else {
+            setEvolutionLine([]);
+          }
+        } else {
+          setEvolutionLine([]);
+        }
       } else {
         setGeneration(null);
+        setEvolutionLine([]);
       }
 
       setError(null);
@@ -100,9 +171,38 @@ return (
       <div>
         <h2>{data.name ? data.name[0].toUpperCase() + data.name.slice(1) : 'Unknown Pokemon'}</h2>
         <img src={data.sprites.front_default} alt={data.name ?? 'pokemon'} />
-        <p>Height: {data.height}</p>
-        <p>Weight: {data.weight}</p>
+        <img src={data.sprites.back_default} alt={data.name ?? 'pokemon'} />
         <p>Generation: {generation ? formatGeneration(generation) : 'Unknown'}</p>
+        <p>Types:</p>
+        <ul>
+          {data.types
+            .sort((a, b) => a.slot - b.slot)
+            .map((typeObj) => (
+              <li key={typeObj.type.name}>{typeObj.type.name}</li>
+            ))}
+        </ul>
+        <p>Abilities:</p>
+        <ul>
+          {data.abilities.map((abilityObj) => (
+            <li key={abilityObj.ability.name}>{abilityObj.ability.name}</li>
+          ))}
+        </ul>
+        <p>Stats:</p>
+        <ul>
+          {data.stats.map((statObj) => (
+            <li key={statObj.stat.name}>
+              {statObj.stat.name.replace('-', ' ')}: {statObj.base_stat}
+            </li>
+          ))}
+        </ul>
+        {evolutionLine.length > 0 && (
+          <p>
+            Evolution line: {evolutionLine.map((name) => name[0].toUpperCase() + name.slice(1)).join(' → ')}
+          </p>
+        )}
+        <button type="button" onClick={handlePlayCry}>
+          Hear Cry
+        </button>
       </div>
     )}
   </div>
