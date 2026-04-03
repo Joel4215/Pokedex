@@ -43,10 +43,19 @@ const [pokemon, setPokemon] = useState<Pokemon | null>(null);
     <div className="info-container">
 
         <h2>{pokemon?.name}</h2>
-        <img src={pokemon?.sprites.front_default} alt={pokemon?.name ?? 'pokemon'} />
-        <img src={pokemon?.sprites.back_default} alt={pokemon?.name ?? 'pokemon'} />
+        <div className="flex flex-row">
+          <img src={pokemon?.sprites.front_default} alt={pokemon?.name ?? 'pokemon'} />
+          <img src={pokemon?.sprites.back_default} alt={pokemon?.name ?? 'pokemon'} />
+        </div>
+        <p>Abilities: {pokemon?.abilities?.map(a => a.ability.name).join(', ')}</p>
+        <p>Evolution Chain: {pokemon?.evolution_chain}</p>
         <p>Generation: {pokemon?.generation}</p>
+        <p>Stats: {pokemon?.stats?.map(s => `${s.stat.name}: ${s.base_stat}`).join(', ')}</p>
       <Type types={pokemon?.types} />
+      <button onClick={() => {
+        const audio = new Audio(pokemon?.cries?.latest);
+        audio.play();
+      }}>Hear Cry</button>
     </div>
   );
 }
